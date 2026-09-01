@@ -4,6 +4,10 @@ import 'data/card_dao.dart';
 import 'data/connection.dart';
 import 'data/database.dart' hide Card;
 import 'features/editor/editor_screen.dart';
+import 'features/scanner/scan_screen.dart';
+import 'features/viewer/card_viewer.dart';
+import 'model/card.dart';
+import 'model/fingerprint_hash.dart';
 import 'ui/fingerprint_view.dart';
 
 void main() {
@@ -76,11 +80,72 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Open a saved card in the read-only viewer, with edit/delete wired back to
+  /// the store. Re-reads the row after an edit so the viewer reflects changes.
+  Future<void> _openViewer(StoredCard stored) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CardViewer(
+          card: stored.card,
+          received: stored.origin == CardOrigin.received,
+          onEdit: () async {
+            await _openEditor(existing: stored);
+            if (mounted) Navigator.of(context).pop(); // back to refreshed list
+          },
+          onDelete: () async {
+            await widget.dao.deleteById(stored.id);
+            if (mounted) Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// Scan (or paste) a shared card, confirm it, and save it as a received card.
+  Future<void> _scan() async {
+    final card = await Navigator.of(context).push<NameCard>(
+      MaterialPageRoute<NameCard>(builder: (_) => const ScanScreen()),
+    );
+    if (card == null || !mounted) return;
+    final fp = Fingerprint.ofCard(card);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(card.name.trim().isEmpty
+            ? 'Add received card?'
+            : 'Add ${card.name.trim()}?'),
+        content: Text('Safety code: ${fp.safetyCode}\n\n'
+            'Confirm this matches the sender before saving.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (save != true || !mounted) return;
+    await widget.dao.upsert(card, origin: CardOrigin.received);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('namecard_vision'),
+        actions: [
+          IconButton(
+            tooltip: 'Scan a card',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: _scan,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -170,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
               s.fingerprintHex.substring(0, 6),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
-            onTap: () => _openEditor(existing: s),
+            onTap: () => _openViewer(s),
           ),
         );
       },
