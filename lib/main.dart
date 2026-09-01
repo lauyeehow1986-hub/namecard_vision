@@ -1,122 +1,179 @@
 import 'package:flutter/material.dart';
 
+import 'data/card_dao.dart';
+import 'data/connection.dart';
+import 'data/database.dart' hide Card;
+import 'features/editor/editor_screen.dart';
+import 'ui/fingerprint_view.dart';
+
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(NamecardVisionApp(database: AppDatabase(openAppDatabase())));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class NamecardVisionApp extends StatelessWidget {
+  final AppDatabase database;
 
-  // This widget is the root of your application.
+  const NamecardVisionApp({super.key, required this.database});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'namecard_vision',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3A6EA5)),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF3A6EA5), brightness: Brightness.dark),
+        useMaterial3: true,
+      ),
+      home: HomeScreen(dao: database.cardDao),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+/// Collection home: search, list of cards with their fingerprint thumbnails,
+/// and a button to create a new card. The list is the P0 store (Drift + FTS5)
+/// made visible; each row's art is re-derived live by [FingerprintView].
+class HomeScreen extends StatefulWidget {
+  final CardDao dao;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const HomeScreen({super.key, required this.dao});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomeScreenState extends State<HomeScreen> {
+  final _search = TextEditingController();
+  String _query = '';
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openEditor({StoredCard? existing}) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditorScreen(
+          initial: existing?.card,
+          onSave: (card) async {
+            await widget.dao.upsert(
+              card,
+              origin: existing?.origin ?? CardOrigin.created,
+              id: existing?.id,
+            );
+            if (mounted) setState(() {}); // refresh search results
+          },
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+        title: const Text('namecard_vision'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
+              controller: _search,
+              onChanged: (v) => setState(() => _query = v.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search name, org, title, tags, note',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
+              ),
             ),
-          ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openEditor(),
+        icon: const Icon(Icons.add),
+        label: const Text('New card'),
       ),
+      body: _query.isEmpty
+          ? StreamBuilder<List<StoredCard>>(
+              stream: widget.dao.watchAll(),
+              builder: (context, snap) => _list(snap.data),
+            )
+          : FutureBuilder<List<StoredCard>>(
+              future: widget.dao.search(_query),
+              builder: (context, snap) => _list(snap.data),
+            ),
+    );
+  }
+
+  Widget _list(List<StoredCard>? cards) {
+    if (cards == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (cards.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.contact_page_outlined,
+                size: 64, color: Theme.of(context).hintColor),
+            const SizedBox(height: 12),
+            Text(_query.isEmpty
+                ? 'No cards yet — tap "New card" to make one.'
+                : 'No cards match "$_query".'),
+          ],
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+      itemCount: cards.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 4),
+      itemBuilder: (context, i) {
+        final s = cards[i];
+        final subtitle =
+            [s.card.title, s.card.org].where((t) => t.isNotEmpty).join(' · ');
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            leading: SizedBox(
+              width: 52,
+              height: 52,
+              child: FingerprintView(
+                  card: s.card, size: 52, showSafetyCode: false),
+            ),
+            title: Text(s.card.name.isEmpty ? '(unnamed)' : s.card.name),
+            subtitle: subtitle.isEmpty ? null : Text(subtitle),
+            trailing: Text(
+              s.fingerprintHex.substring(0, 6),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            onTap: () => _openEditor(existing: s),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,30 +1,23 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:namecard_vision/main.dart';
+import 'package:namecard_vision/features/editor/editor_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('editor live-preview reacts to typing', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: EditorScreen()));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Blank card shows the placeholder title in the preview panel.
+    expect(find.text('(unnamed card)'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Typing a name updates the live preview title.
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Name'), 'Grace Hopper');
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('(unnamed card)'), findsNothing);
+    // 'Grace Hopper' now appears in both the text field and the live preview
+    // title — the preview reacting is exactly what we want to prove.
+    expect(find.text('Grace Hopper'), findsWidgets);
   });
 }
