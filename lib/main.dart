@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'backup/backup_service.dart';
 import 'data/card_dao.dart';
 import 'data/connection.dart';
 import 'data/database.dart' hide Card;
+import 'features/backup/backup_actions.dart';
 import 'features/editor/editor_screen.dart';
 import 'features/scanner/scan_screen.dart';
 import 'features/viewer/card_viewer.dart';
@@ -55,10 +57,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
   String _query = '';
 
+  late final BackupService _backup = BackupService(widget.dao);
+
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportCollection() =>
+      BackupActions.export(context, _backup);
+
+  Future<void> _importBackup() async {
+    final added = await BackupActions.import(context, _backup);
+    if (added && mounted) setState(() {});
   }
 
   Future<void> _openEditor({StoredCard? existing}) async {
@@ -144,6 +156,31 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Scan a card',
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: _scan,
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Backup',
+            onSelected: (v) {
+              if (v == 'export') _exportCollection();
+              if (v == 'import') _importBackup();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'export',
+                child: ListTile(
+                  leading: Icon(Icons.upload_file_outlined),
+                  title: Text('Export collection…'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'import',
+                child: ListTile(
+                  leading: Icon(Icons.download_outlined),
+                  title: Text('Import backup…'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
         bottom: PreferredSize(

@@ -5,7 +5,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../model/card.dart';
 import '../../model/fingerprint_hash.dart';
 import '../../share/envelope.dart';
+import '../../share/nfc_share.dart';
 import '../../share/vcard.dart';
+import 'nfc_sheet.dart';
 
 /// Shows a card as a scannable QR (the verifiable NCV envelope) alongside its
 /// fingerprint + safety code, plus a vCard fallback for app-less recipients.
@@ -71,6 +73,12 @@ class ShareScreen extends StatelessWidget {
                   spacing: 8,
                   overflowSpacing: 8,
                   children: [
+                    if (NfcShare.platformSupported)
+                      FilledButton.icon(
+                        icon: const Icon(Icons.contactless),
+                        label: const Text('Tap to share'),
+                        onPressed: () => showNfcSend(context, card),
+                      ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.copy),
                       label: const Text('Copy share code'),

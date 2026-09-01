@@ -47,6 +47,12 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.4.0
 
+  # P3 exchange & portability.
+  archive: ^4.0.0        # .ncv backup bundle (pure-Dart zip)
+  nfc_manager: ^4.0.2    # NFC tap-to-share (NDEF)
+  file_picker: ^8.1.6    # import a .ncv file
+  share_plus: ^10.1.4    # export a .ncv file via the OS share sheet
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

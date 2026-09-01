@@ -3,6 +3,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../model/card.dart';
 import '../../share/envelope.dart';
+import '../../share/nfc_share.dart';
+import '../share/nfc_sheet.dart';
 
 /// Camera QR scanner for receiving a card. Decodes the NCV envelope and, on a
 /// valid card, pops with the decoded [NameCard] for the caller to verify+save.
@@ -56,6 +58,12 @@ class _ScanScreenState extends State<ScanScreen> {
       appBar: AppBar(
         title: const Text('Scan a card'),
         actions: [
+          if (NfcShare.platformSupported)
+            IconButton(
+              tooltip: 'Receive via NFC',
+              icon: const Icon(Icons.contactless),
+              onPressed: _receiveNfc,
+            ),
           IconButton(
             tooltip: 'Enter code',
             icon: const Icon(Icons.keyboard),
@@ -97,6 +105,12 @@ class _ScanScreenState extends State<ScanScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _receiveNfc() async {
+    final card = await showNfcReceive(context);
+    if (card == null || !mounted) return;
+    Navigator.of(context).pop(card);
   }
 
   Future<void> _enterManually() async {
