@@ -1,0 +1,17 @@
+# Release signing config for namecard_vision.
+#
+# Copy this file to `android/key.properties` (which is gitignored and MUST NEVER
+# be committed) and fill in your real values. The build reads it to sign the
+# release APK/AAB; if it is absent, release builds fall back to debug signing.
+#
+# storeFile points at the keystore you created with keytool — keep that file
+# OUTSIDE the repo (e.g. C:/Users/lauye/keys). Use forward slashes.
+#
+# IMPORTANT: once you ship a release signed with this keystore, every future
+# update MUST use the SAME keystore, alias, and passwords, or the app can no
+# longer be upgraded in place.
+
+storePassword=CHANGEME
+keyPassword=CHANGEME
+keyAlias=namecard_vision
+storeFile=C:/Users/lauye/keys/namecard_vision-release.jks
