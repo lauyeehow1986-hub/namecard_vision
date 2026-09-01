@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "io.github.lauyeehow1986.namecard_vision"
-    compileSdk = flutter.compileSdkVersion
+    // Some plugins (flutter_plugin_android_lifecycle via file_picker, etc.) require
+    // compiling against API 36; override Flutter's default (34).
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
