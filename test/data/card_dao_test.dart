@@ -59,4 +59,46 @@ void main() {
     expect((await db.cardDao.getAll()).isEmpty, isTrue);
     expect((await db.cardDao.search('test')).isEmpty, isTrue);
   });
+
+  test('cards default to unpinned and not-mine', () async {
+    await db.cardDao
+        .upsert(const NameCard(name: 'Ada'), origin: CardOrigin.created);
+    final s = (await db.cardDao.getAll()).single;
+    expect(s.pinned, isFalse);
+    expect(s.isMine, isFalse);
+  });
+
+  test('upsert can mark a card as the user\'s own', () async {
+    final id = await db.cardDao.upsert(const NameCard(name: 'Me'),
+        origin: CardOrigin.created, isMine: true);
+    expect((await db.cardDao.getById(id))!.isMine, isTrue);
+  });
+
+  test('setPinned / setMine toggle independently', () async {
+    final id = await db.cardDao
+        .upsert(const NameCard(name: 'Ada'), origin: CardOrigin.created);
+
+    await db.cardDao.setPinned(id, true);
+    expect((await db.cardDao.getById(id))!.pinned, isTrue);
+    expect((await db.cardDao.getById(id))!.isMine, isFalse);
+
+    await db.cardDao.setMine(id, true);
+    final s = (await db.cardDao.getById(id))!;
+    expect(s.pinned, isTrue);
+    expect(s.isMine, isTrue);
+  });
+
+  test('editing a card preserves pin and role (isMine omitted)', () async {
+    final id = await db.cardDao.upsert(const NameCard(name: 'Ada'),
+        origin: CardOrigin.created, isMine: true);
+    await db.cardDao.setPinned(id, true);
+
+    // Re-save without passing isMine: flags must survive the edit.
+    await db.cardDao.upsert(const NameCard(name: 'Ada Lovelace'),
+        origin: CardOrigin.created, id: id);
+    final s = (await db.cardDao.getById(id))!;
+    expect(s.card.name, 'Ada Lovelace');
+    expect(s.pinned, isTrue);
+    expect(s.isMine, isTrue);
+  });
 }

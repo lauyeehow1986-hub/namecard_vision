@@ -75,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (added && mounted) setState(() {});
   }
 
-  Future<void> _openEditor({StoredCard? existing, NameCard? prefill}) async {
+  Future<void> _openEditor(
+      {StoredCard? existing, NameCard? prefill, bool isMine = false}) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => EditorScreen(
@@ -85,6 +86,8 @@ class _HomeScreenState extends State<HomeScreen> {
               card,
               origin: existing?.origin ?? CardOrigin.created,
               id: existing?.id,
+              // Only set the role on creation; editing preserves it.
+              isMine: existing == null ? isMine : null,
             );
             if (mounted) setState(() {}); // refresh search results
           },
@@ -92,6 +95,73 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// The "+" button asks whether you're adding your own namecard or a contact,
+  /// since a card you create (or OCR from a photo) is usually someone else's.
+  Future<void> _addCard() async {
+    final mine = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: const Text('New contact'),
+              subtitle: const Text('Someone else’s card'),
+              onTap: () => Navigator.of(ctx).pop(false),
+            ),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('My namecard'),
+              subtitle: const Text('Your own card, to share'),
+              onTap: () => Navigator.of(ctx).pop(true),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (mine == null) return;
+    await _openEditor(isMine: mine);
+  }
+
+  /// Long-press actions on a row: pin/unpin and switch a card between "mine"
+  /// and contacts.
+  Future<void> _rowActions(StoredCard s) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(s.pinned ? Icons.star : Icons.star_border),
+              title: Text(s.pinned ? 'Unpin' : 'Pin to top'),
+              onTap: () async {
+                await widget.dao.setPinned(s.id, !s.pinned);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) setState(() {});
+              },
+            ),
+            ListTile(
+              leading:
+                  Icon(s.isMine ? Icons.person_outline : Icons.badge_outlined),
+              title: Text(s.isMine ? 'Move to contacts' : 'Set as my card'),
+              onTap: () async {
+                await widget.dao.setMine(s.id, !s.isMine);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Photograph a physical card, OCR it, and open the editor prefilled with the
@@ -230,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(),
+        onPressed: _addCard,
         icon: const Icon(Icons.add),
         label: const Text('New card'),
       ),
@@ -250,48 +320,109 @@ class _HomeScreenState extends State<HomeScreen> {
     if (cards == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (cards.isEmpty) {
-      return Center(
+    // Search results stay a single flat list across everything.
+    if (_query.isNotEmpty) {
+      if (cards.isEmpty) return _empty('No cards match "$_query".');
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+        itemCount: cards.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        itemBuilder: (context, i) => _cardTile(cards[i]),
+      );
+    }
+
+    // Grouped home: favourites on top, then the user's own cards, then contacts.
+    final pinned = cards.where((c) => c.pinned).toList();
+    final mine = cards.where((c) => !c.pinned && c.isMine).toList();
+    final contacts = cards.where((c) => !c.pinned && !c.isMine).toList();
+
+    final children = <Widget>[];
+    if (pinned.isNotEmpty) {
+      children.add(_header('Pinned', Icons.star));
+      children.addAll(pinned.map(_cardTile));
+    }
+    children.add(_header('My cards', Icons.badge_outlined));
+    if (mine.isEmpty) {
+      children.add(_addMinePlaceholder());
+    } else {
+      children.addAll(mine.map(_cardTile));
+    }
+    if (contacts.isNotEmpty) {
+      children.add(_header('Contacts', Icons.contacts_outlined));
+      children.addAll(contacts.map(_cardTile));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+      children: children,
+    );
+  }
+
+  Widget _empty(String message) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.contact_page_outlined,
                 size: 64, color: Theme.of(context).hintColor),
             const SizedBox(height: 12),
-            Text(_query.isEmpty
-                ? 'No cards yet — tap "New card" to make one.'
-                : 'No cards match "$_query".'),
+            Text(message),
           ],
         ),
       );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
-      itemCount: cards.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
-      itemBuilder: (context, i) {
-        final s = cards[i];
-        final subtitle =
-            [s.card.title, s.card.org].where((t) => t.isNotEmpty).join(' · ');
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            leading: SizedBox(
-              width: 52,
-              height: 52,
-              child: FingerprintView(
-                  card: s.card, size: 52, showSafetyCode: false),
+
+  Widget _header(String label, IconData icon) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              label.toUpperCase(),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: 0.8,
+                  ),
             ),
-            title: Text(s.card.name.isEmpty ? '(unnamed)' : s.card.name),
-            subtitle: subtitle.isEmpty ? null : Text(subtitle),
-            trailing: Text(
-              s.fingerprintHex.substring(0, 6),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-            onTap: () => _openViewer(s),
-          ),
-        );
-      },
+          ],
+        ),
+      );
+
+  /// Shown under "My cards" when the user hasn't marked one yet.
+  Widget _addMinePlaceholder() => Card(
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: const Icon(Icons.add),
+          title: const Text('Add your namecard'),
+          subtitle: const Text('The card you share with others'),
+          onTap: () => _openEditor(isMine: true),
+        ),
+      );
+
+  Widget _cardTile(StoredCard s) {
+    final subtitle =
+        [s.card.title, s.card.org].where((t) => t.isNotEmpty).join(' · ');
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: SizedBox(
+          width: 52,
+          height: 52,
+          child: FingerprintView(card: s.card, size: 52, showSafetyCode: false),
+        ),
+        title: Text(s.card.name.isEmpty ? '(unnamed)' : s.card.name),
+        subtitle: subtitle.isEmpty ? null : Text(subtitle),
+        trailing: IconButton(
+          tooltip: s.pinned ? 'Unpin' : 'Pin to top',
+          icon: Icon(s.pinned ? Icons.star : Icons.star_border,
+              color: s.pinned ? Theme.of(context).colorScheme.primary : null),
+          onPressed: () async {
+            await widget.dao.setPinned(s.id, !s.pinned);
+            if (mounted) setState(() {});
+          },
+        ),
+        onTap: () => _openViewer(s),
+        onLongPress: () => _rowActions(s),
+      ),
     );
   }
 }

@@ -23,6 +23,12 @@ class Cards extends Table {
   TextColumn get note => text().withDefault(const Constant(''))();
   TextColumn get dataJson => text()();
   BlobColumn get avatar => blob().nullable()();
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+
+  /// True for the user's own namecard(s) — the ones they hand out — as opposed
+  /// to contacts. Independent of [origin]: a card typed or OCR'd from a physical
+  /// card is still someone else's unless explicitly marked mine.
+  BoolColumn get isMine => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -35,13 +41,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _createFts();
+        },
+        onUpgrade: (m, from, to) async {
+          // v2 adds the `pinned` favourites flag and the `isMine` role flag.
+          if (from < 2) {
+            await m.addColumn(cards, cards.pinned);
+            await m.addColumn(cards, cards.isMine);
+          }
         },
       );
 

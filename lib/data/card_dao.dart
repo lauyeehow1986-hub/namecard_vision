@@ -30,6 +30,7 @@ class CardDao extends DatabaseAccessor<AppDatabase> with _$CardDaoMixin {
     required CardOrigin origin,
     String? id,
     Uint8List? avatar,
+    bool? isMine,
     DateTime? createdAt,
   }) async {
     final now = DateTime.now();
@@ -47,6 +48,9 @@ class CardDao extends DatabaseAccessor<AppDatabase> with _$CardDaoMixin {
         tags: Value(card.tags.join(' ')),
         note: Value(card.note),
         avatar: Value(avatar),
+        // Omitted (absent) on edit so the pin/role flags survive; set only when
+        // the caller explicitly says whether this is the user's own card.
+        isMine: isMine == null ? const Value.absent() : Value(isMine),
         createdAt: createdAt ?? now,
         updatedAt: now,
       ),
@@ -56,6 +60,17 @@ class CardDao extends DatabaseAccessor<AppDatabase> with _$CardDaoMixin {
 
   Future<void> deleteById(String id) =>
       (delete(cards)..where((t) => t.id.equals(id))).go();
+
+  /// Pin or unpin a card (favourites float to the top of the collection).
+  /// Kept separate from [upsert] so editing a card never disturbs its pin.
+  Future<void> setPinned(String id, bool pinned) =>
+      (update(cards)..where((t) => t.id.equals(id)))
+          .write(CardsCompanion(pinned: Value(pinned)));
+
+  /// Mark a card as the user's own namecard, or move it back to contacts.
+  Future<void> setMine(String id, bool isMine) =>
+      (update(cards)..where((t) => t.id.equals(id)))
+          .write(CardsCompanion(isMine: Value(isMine)));
 
   /// All cards, newest-updated first, as a live stream.
   Stream<List<StoredCard>> watchAll() {
@@ -98,6 +113,8 @@ class CardDao extends DatabaseAccessor<AppDatabase> with _$CardDaoMixin {
         card: NameCard.fromJson(
             jsonDecode(row.dataJson) as Map<String, dynamic>),
         avatar: row.avatar,
+        pinned: row.pinned,
+        isMine: row.isMine,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       );
@@ -120,6 +137,8 @@ class StoredCard {
   final String fingerprintHex;
   final NameCard card;
   final Uint8List? avatar;
+  final bool pinned;
+  final bool isMine;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -129,6 +148,8 @@ class StoredCard {
     required this.fingerprintHex,
     required this.card,
     required this.avatar,
+    this.pinned = false,
+    this.isMine = false,
     required this.createdAt,
     required this.updatedAt,
   });

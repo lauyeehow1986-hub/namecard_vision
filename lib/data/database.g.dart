@@ -107,6 +107,32 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
     type: DriftSqlType.blob,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pinnedMeta = const VerificationMeta('pinned');
+  @override
+  late final GeneratedColumn<bool> pinned = GeneratedColumn<bool>(
+    'pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isMineMeta = const VerificationMeta('isMine');
+  @override
+  late final GeneratedColumn<bool> isMine = GeneratedColumn<bool>(
+    'is_mine',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_mine" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -141,6 +167,8 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
     note,
     dataJson,
     avatar,
+    pinned,
+    isMine,
     createdAt,
     updatedAt,
   ];
@@ -224,6 +252,18 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
         avatar.isAcceptableOrUnknown(data['avatar']!, _avatarMeta),
       );
     }
+    if (data.containsKey('pinned')) {
+      context.handle(
+        _pinnedMeta,
+        pinned.isAcceptableOrUnknown(data['pinned']!, _pinnedMeta),
+      );
+    }
+    if (data.containsKey('is_mine')) {
+      context.handle(
+        _isMineMeta,
+        isMine.isAcceptableOrUnknown(data['is_mine']!, _isMineMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -289,6 +329,14 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
         DriftSqlType.blob,
         data['${effectivePrefix}avatar'],
       ),
+      pinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pinned'],
+      )!,
+      isMine: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_mine'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -317,6 +365,12 @@ class Card extends DataClass implements Insertable<Card> {
   final String note;
   final String dataJson;
   final Uint8List? avatar;
+  final bool pinned;
+
+  /// True for the user's own namecard(s) — the ones they hand out — as opposed
+  /// to contacts. Independent of [origin]: a card typed or OCR'd from a physical
+  /// card is still someone else's unless explicitly marked mine.
+  final bool isMine;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Card({
@@ -330,6 +384,8 @@ class Card extends DataClass implements Insertable<Card> {
     required this.note,
     required this.dataJson,
     this.avatar,
+    required this.pinned,
+    required this.isMine,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -348,6 +404,8 @@ class Card extends DataClass implements Insertable<Card> {
     if (!nullToAbsent || avatar != null) {
       map['avatar'] = Variable<Uint8List>(avatar);
     }
+    map['pinned'] = Variable<bool>(pinned);
+    map['is_mine'] = Variable<bool>(isMine);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -367,6 +425,8 @@ class Card extends DataClass implements Insertable<Card> {
       avatar: avatar == null && nullToAbsent
           ? const Value.absent()
           : Value(avatar),
+      pinned: Value(pinned),
+      isMine: Value(isMine),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -388,6 +448,8 @@ class Card extends DataClass implements Insertable<Card> {
       note: serializer.fromJson<String>(json['note']),
       dataJson: serializer.fromJson<String>(json['dataJson']),
       avatar: serializer.fromJson<Uint8List?>(json['avatar']),
+      pinned: serializer.fromJson<bool>(json['pinned']),
+      isMine: serializer.fromJson<bool>(json['isMine']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -406,6 +468,8 @@ class Card extends DataClass implements Insertable<Card> {
       'note': serializer.toJson<String>(note),
       'dataJson': serializer.toJson<String>(dataJson),
       'avatar': serializer.toJson<Uint8List?>(avatar),
+      'pinned': serializer.toJson<bool>(pinned),
+      'isMine': serializer.toJson<bool>(isMine),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -422,6 +486,8 @@ class Card extends DataClass implements Insertable<Card> {
     String? note,
     String? dataJson,
     Value<Uint8List?> avatar = const Value.absent(),
+    bool? pinned,
+    bool? isMine,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Card(
@@ -435,6 +501,8 @@ class Card extends DataClass implements Insertable<Card> {
     note: note ?? this.note,
     dataJson: dataJson ?? this.dataJson,
     avatar: avatar.present ? avatar.value : this.avatar,
+    pinned: pinned ?? this.pinned,
+    isMine: isMine ?? this.isMine,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -452,6 +520,8 @@ class Card extends DataClass implements Insertable<Card> {
       note: data.note.present ? data.note.value : this.note,
       dataJson: data.dataJson.present ? data.dataJson.value : this.dataJson,
       avatar: data.avatar.present ? data.avatar.value : this.avatar,
+      pinned: data.pinned.present ? data.pinned.value : this.pinned,
+      isMine: data.isMine.present ? data.isMine.value : this.isMine,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -470,6 +540,8 @@ class Card extends DataClass implements Insertable<Card> {
           ..write('note: $note, ')
           ..write('dataJson: $dataJson, ')
           ..write('avatar: $avatar, ')
+          ..write('pinned: $pinned, ')
+          ..write('isMine: $isMine, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -488,6 +560,8 @@ class Card extends DataClass implements Insertable<Card> {
     note,
     dataJson,
     $driftBlobEquality.hash(avatar),
+    pinned,
+    isMine,
     createdAt,
     updatedAt,
   );
@@ -505,6 +579,8 @@ class Card extends DataClass implements Insertable<Card> {
           other.note == this.note &&
           other.dataJson == this.dataJson &&
           $driftBlobEquality.equals(other.avatar, this.avatar) &&
+          other.pinned == this.pinned &&
+          other.isMine == this.isMine &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -520,6 +596,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
   final Value<String> note;
   final Value<String> dataJson;
   final Value<Uint8List?> avatar;
+  final Value<bool> pinned;
+  final Value<bool> isMine;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -534,6 +612,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
     this.note = const Value.absent(),
     this.dataJson = const Value.absent(),
     this.avatar = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.isMine = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -549,6 +629,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
     this.note = const Value.absent(),
     required String dataJson,
     this.avatar = const Value.absent(),
+    this.pinned = const Value.absent(),
+    this.isMine = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -569,6 +651,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
     Expression<String>? note,
     Expression<String>? dataJson,
     Expression<Uint8List>? avatar,
+    Expression<bool>? pinned,
+    Expression<bool>? isMine,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -584,6 +668,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
       if (note != null) 'note': note,
       if (dataJson != null) 'data_json': dataJson,
       if (avatar != null) 'avatar': avatar,
+      if (pinned != null) 'pinned': pinned,
+      if (isMine != null) 'is_mine': isMine,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -601,6 +687,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
     Value<String>? note,
     Value<String>? dataJson,
     Value<Uint8List?>? avatar,
+    Value<bool>? pinned,
+    Value<bool>? isMine,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -616,6 +704,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
       note: note ?? this.note,
       dataJson: dataJson ?? this.dataJson,
       avatar: avatar ?? this.avatar,
+      pinned: pinned ?? this.pinned,
+      isMine: isMine ?? this.isMine,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -655,6 +745,12 @@ class CardsCompanion extends UpdateCompanion<Card> {
     if (avatar.present) {
       map['avatar'] = Variable<Uint8List>(avatar.value);
     }
+    if (pinned.present) {
+      map['pinned'] = Variable<bool>(pinned.value);
+    }
+    if (isMine.present) {
+      map['is_mine'] = Variable<bool>(isMine.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -680,6 +776,8 @@ class CardsCompanion extends UpdateCompanion<Card> {
           ..write('note: $note, ')
           ..write('dataJson: $dataJson, ')
           ..write('avatar: $avatar, ')
+          ..write('pinned: $pinned, ')
+          ..write('isMine: $isMine, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -711,6 +809,8 @@ typedef $$CardsTableCreateCompanionBuilder = CardsCompanion Function({
   Value<String> note,
   required String dataJson,
   Value<Uint8List?> avatar,
+  Value<bool> pinned,
+  Value<bool> isMine,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -726,6 +826,8 @@ typedef $$CardsTableUpdateCompanionBuilder = CardsCompanion Function({
   Value<String> note,
   Value<String> dataJson,
   Value<Uint8List?> avatar,
+  Value<bool> pinned,
+  Value<bool> isMine,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -786,6 +888,16 @@ class $$CardsTableFilterComposer extends Composer<_$AppDatabase, $CardsTable> {
 
   ColumnFilters<Uint8List> get avatar => $composableBuilder(
     column: $table.avatar,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -859,6 +971,16 @@ class $$CardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -911,6 +1033,12 @@ class $$CardsTableAnnotationComposer
   GeneratedColumn<Uint8List> get avatar =>
       $composableBuilder(column: $table.avatar, builder: (column) => column);
 
+  GeneratedColumn<bool> get pinned =>
+      $composableBuilder(column: $table.pinned, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMine =>
+      $composableBuilder(column: $table.isMine, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -956,6 +1084,8 @@ class $$CardsTableTableManager
                 Value<String> note = const Value.absent(),
                 Value<String> dataJson = const Value.absent(),
                 Value<Uint8List?> avatar = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<bool> isMine = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -970,6 +1100,8 @@ class $$CardsTableTableManager
                 note: note,
                 dataJson: dataJson,
                 avatar: avatar,
+                pinned: pinned,
+                isMine: isMine,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -986,6 +1118,8 @@ class $$CardsTableTableManager
                 Value<String> note = const Value.absent(),
                 required String dataJson,
                 Value<Uint8List?> avatar = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
+                Value<bool> isMine = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -1000,6 +1134,8 @@ class $$CardsTableTableManager
                 note: note,
                 dataJson: dataJson,
                 avatar: avatar,
+                pinned: pinned,
+                isMine: isMine,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
