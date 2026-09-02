@@ -29,7 +29,7 @@ class FingerprintRaster {
     FingerprintStyle? style,
   }) async {
     final fp = Fingerprint.ofCard(card);
-    final s = style ?? defaultStyle;
+    final s = style ?? styleById(card.styleId);
     final dim = size.toDouble();
 
     final recorder = ui.PictureRecorder();

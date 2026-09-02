@@ -80,6 +80,14 @@ class NameCard {
   final List<String> tags;
   final String? avatarSha256;
 
+  /// Which fingerprint art skin this card is drawn with (a [FingerprintStyle]
+  /// id, e.g. `biostat.v1`). This is a *rendering* choice, so it is carried on
+  /// the card and travels with it — a recipient sees the skin the sender picked
+  /// — but it is deliberately NOT part of the canonical hash: the safety code
+  /// verifies the card's contents, not how the art looks. `null` means the
+  /// default skin.
+  final String? styleId;
+
   const NameCard({
     this.name = '',
     this.title = '',
@@ -90,6 +98,7 @@ class NameCard {
     this.note = '',
     this.tags = const [],
     this.avatarSha256,
+    this.styleId,
   });
 
   NameCard copyWith({
@@ -103,6 +112,7 @@ class NameCard {
     List<String>? tags,
     String? avatarSha256,
     bool clearAvatar = false,
+    String? styleId,
   }) =>
       NameCard(
         name: name ?? this.name,
@@ -114,6 +124,7 @@ class NameCard {
         note: note ?? this.note,
         tags: tags ?? this.tags,
         avatarSha256: clearAvatar ? null : (avatarSha256 ?? this.avatarSha256),
+        styleId: styleId ?? this.styleId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -126,6 +137,9 @@ class NameCard {
         'note': note,
         'tags': tags,
         'avatarSha256': avatarSha256,
+        // Only emitted when set, so default-skin cards stay byte-for-byte
+        // identical to pre-skins payloads.
+        if (styleId != null) 'styleId': styleId,
       };
 
   factory NameCard.fromJson(Map<String, dynamic> j) => NameCard(
@@ -142,6 +156,7 @@ class NameCard {
         note: (j['note'] ?? '') as String,
         tags: ((j['tags'] ?? const []) as List).cast<String>(),
         avatarSha256: j['avatarSha256'] as String?,
+        styleId: j['styleId'] as String?,
       );
 
   @override
@@ -155,7 +170,8 @@ class NameCard {
       _listEq(other.socials, socials) &&
       other.note == note &&
       _listEq(other.tags, tags) &&
-      other.avatarSha256 == avatarSha256;
+      other.avatarSha256 == avatarSha256 &&
+      other.styleId == styleId;
 
   @override
   int get hashCode => Object.hash(
@@ -168,6 +184,7 @@ class NameCard {
         note,
         Object.hashAll(tags),
         avatarSha256,
+        styleId,
       );
 }
 

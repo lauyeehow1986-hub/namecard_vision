@@ -27,7 +27,7 @@ class FingerprintView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fp = Fingerprint.ofCard(card);
-    final s = style ?? defaultStyle;
+    final s = style ?? styleById(card.styleId);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

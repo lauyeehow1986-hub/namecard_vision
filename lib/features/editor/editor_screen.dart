@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../fingerprint/registry.dart';
 import '../../model/card.dart';
 import '../../model/fingerprint_hash.dart';
 import '../../ui/fingerprint_view.dart';
@@ -31,10 +32,14 @@ class _EditorScreenState extends State<EditorScreen> {
   late final TextEditingController _note;
   bool _saving = false;
 
+  /// The chosen art skin ([FingerprintStyle.id]); null means the default skin.
+  String? _styleId;
+
   @override
   void initState() {
     super.initState();
     final c = widget.initial ?? const NameCard();
+    _styleId = c.styleId;
     _name = TextEditingController(text: c.name);
     _title = TextEditingController(text: c.title);
     _org = TextEditingController(text: c.org);
@@ -79,6 +84,7 @@ class _EditorScreenState extends State<EditorScreen> {
       emails: email.isEmpty ? const [] : [email],
       note: t(_note),
       tags: tags,
+      styleId: _styleId,
     );
   }
 
@@ -107,7 +113,12 @@ class _EditorScreenState extends State<EditorScreen> {
     final fp = Fingerprint.ofCard(card);
     final wide = MediaQuery.of(context).size.width >= 720;
 
-    final preview = _PreviewPanel(card: card, hex: fp.hex);
+    final preview = _PreviewPanel(
+      card: card,
+      hex: fp.hex,
+      selectedStyleId: _styleId,
+      onStyleSelected: (id) => setState(() => _styleId = id),
+    );
     final form = _formFields();
 
     return Scaffold(
@@ -192,8 +203,15 @@ class _EditorScreenState extends State<EditorScreen> {
 class _PreviewPanel extends StatelessWidget {
   final NameCard card;
   final String hex;
+  final String? selectedStyleId;
+  final ValueChanged<String> onStyleSelected;
 
-  const _PreviewPanel({required this.card, required this.hex});
+  const _PreviewPanel({
+    required this.card,
+    required this.hex,
+    required this.selectedStyleId,
+    required this.onStyleSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +219,12 @@ class _PreviewPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         FingerprintView(card: card, size: 240),
+        const SizedBox(height: 16),
+        _SkinPicker(
+          card: card,
+          selectedStyleId: selectedStyleId,
+          onSelected: onStyleSelected,
+        ),
         const SizedBox(height: 16),
         Text(
           card.name.isEmpty ? '(unnamed card)' : card.name,
@@ -231,6 +255,114 @@ class _PreviewPanel extends StatelessWidget {
               ?.copyWith(color: Theme.of(context).hintColor),
         ),
       ],
+    );
+  }
+}
+
+/// A row of tappable thumbnails — one per registered art skin — each rendering
+/// the *current* card so the choice previews live. Selecting a skin only
+/// changes how the card is drawn; the safety code (content hash) is unchanged.
+class _SkinPicker extends StatelessWidget {
+  final NameCard card;
+  final String? selectedStyleId;
+  final ValueChanged<String> onSelected;
+
+  const _SkinPicker({
+    required this.card,
+    required this.selectedStyleId,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveId = selectedStyleId ?? defaultStyle.id;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'ART SKIN',
+          style: theme.textTheme.labelSmall
+              ?.copyWith(color: theme.hintColor, letterSpacing: 1.5),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final s in styles)
+              _SkinThumb(
+                label: s.label,
+                selected: s.id == effectiveId,
+                onTap: () => onSelected(s.id),
+                // Render this specific skin for the current card, no code.
+                child: FingerprintView(
+                  card: card,
+                  size: 64,
+                  style: s,
+                  showSafetyCode: false,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SkinThumb extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _SkinThumb({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label art skin',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  width: selected ? 2.5 : 1,
+                  color: selected ? accent : theme.dividerColor,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: child,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: selected ? accent : theme.hintColor,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
