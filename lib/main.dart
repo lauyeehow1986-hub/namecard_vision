@@ -271,6 +271,19 @@ class _HomeScreenState extends State<HomeScreen> {
             await widget.dao.setMine(stored.id, v);
             if (mounted) setState(() {});
           },
+          onCardChanged: (updated) async {
+            // A restyle: same row, same content (and thus same fingerprint) —
+            // only the skin changes. Preserve avatar/origin/createdAt; leaving
+            // isMine absent keeps the role and pin flags untouched.
+            await widget.dao.upsert(
+              updated,
+              origin: stored.origin,
+              id: stored.id,
+              avatar: stored.avatar,
+              createdAt: stored.createdAt,
+            );
+            if (mounted) setState(() {});
+          },
           onEdit: () async {
             await _openEditor(existing: stored);
             if (mounted) Navigator.of(context).pop(); // back to refreshed list

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../contacts/device_contacts.dart';
+import '../../fingerprint/registry.dart';
 import '../../model/card.dart';
 import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
 import '../../ui/fingerprint_view.dart';
+import '../../ui/skin_picker.dart';
 import '../share/share_screen.dart';
 import 'contact_actions_ui.dart';
 
@@ -25,6 +27,11 @@ class CardViewer extends StatefulWidget {
   final ValueChanged<bool>? onTogglePin;
   final ValueChanged<bool>? onToggleMine;
 
+  /// Called with the updated card when the user restyles it here (picks a new
+  /// art skin). Only the rendering changes — the safety code is unaffected — so
+  /// this is a lighter callback than a full [onEdit].
+  final ValueChanged<NameCard>? onCardChanged;
+
   const CardViewer({
     super.key,
     required this.card,
@@ -35,6 +42,7 @@ class CardViewer extends StatefulWidget {
     this.onDelete,
     this.onTogglePin,
     this.onToggleMine,
+    this.onCardChanged,
   });
 
   @override
@@ -45,7 +53,18 @@ class _CardViewerState extends State<CardViewer> {
   late bool _pinned = widget.pinned;
   late bool _isMine = widget.isMine;
 
-  NameCard get card => widget.card;
+  /// Local copy so a skin change re-renders the fingerprint instantly while the
+  /// viewer sits on the stack; persistence happens via [widget.onCardChanged].
+  late NameCard _card = widget.card;
+
+  NameCard get card => _card;
+
+  void _selectStyle(String id) {
+    setState(() => _card = _card.copyWith(styleId: id));
+    widget.onCardChanged?.call(_card);
+  }
+
+  String _currentSkinLabel() => styleById(_card.styleId).label;
 
   void _togglePin() {
     setState(() => _pinned = !_pinned);
@@ -171,6 +190,32 @@ class _CardViewerState extends State<CardViewer> {
                     ),
                   ),
                 FingerprintView(card: card, size: 240),
+                if (widget.onCardChanged != null) ...[
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Theme(
+                      // Drop the default divider lines so the tile blends in.
+                      data: theme.copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding:
+                            const EdgeInsets.symmetric(horizontal: 24),
+                        childrenPadding:
+                            const EdgeInsets.only(bottom: 12),
+                        leading: const Icon(Icons.palette_outlined),
+                        title: Text('Art skin: ${_currentSkinLabel()}'),
+                        subtitle: const Text('Changing this keeps the safety code'),
+                        children: [
+                          SkinPicker(
+                            card: card,
+                            selectedStyleId: card.styleId,
+                            onSelected: _selectStyle,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 if (card.title.trim().isNotEmpty)
                   Text(card.title.trim(), style: theme.textTheme.titleMedium),

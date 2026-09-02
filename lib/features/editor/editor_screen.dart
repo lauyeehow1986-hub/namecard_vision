@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../fingerprint/registry.dart';
 import '../../model/card.dart';
 import '../../model/fingerprint_hash.dart';
 import '../../ui/fingerprint_view.dart';
+import '../../ui/skin_picker.dart';
 
 /// Card editor with a live fingerprint preview. As the fields change the art
 /// and safety code recompute on every keystroke, so the verifiable identity of
@@ -35,11 +35,16 @@ class _EditorScreenState extends State<EditorScreen> {
   /// The chosen art skin ([FingerprintStyle.id]); null means the default skin.
   String? _styleId;
 
+  /// Social / web links being edited. Managed as a list (not controllers on the
+  /// state) so rows can be added and removed freely.
+  late List<SocialLink> _socials;
+
   @override
   void initState() {
     super.initState();
     final c = widget.initial ?? const NameCard();
     _styleId = c.styleId;
+    _socials = List<SocialLink>.of(c.socials);
     _name = TextEditingController(text: c.name);
     _title = TextEditingController(text: c.title);
     _org = TextEditingController(text: c.org);
@@ -82,10 +87,24 @@ class _EditorScreenState extends State<EditorScreen> {
       org: t(_org),
       phones: phone.isEmpty ? const [] : [PhoneNumber(label: 'mobile', e164: phone)],
       emails: email.isEmpty ? const [] : [email],
+      socials: _cleanSocials(),
       note: t(_note),
       tags: tags,
       styleId: _styleId,
     );
+  }
+
+  /// Drop links whose value is empty and trim the rest, so blank rows the user
+  /// added but never filled in don't get saved onto the card.
+  List<SocialLink> _cleanSocials() {
+    final out = <SocialLink>[];
+    for (final s in _socials) {
+      final handle = s.handle.trim();
+      final url = s.url.trim();
+      if (handle.isEmpty && url.isEmpty) continue;
+      out.add(SocialLink(platform: s.platform, handle: handle, url: url));
+    }
+    return out;
   }
 
   Future<void> _save() async {
@@ -179,6 +198,10 @@ class _EditorScreenState extends State<EditorScreen> {
               keyboard: TextInputType.emailAddress),
           _field(_tags, 'Tags (comma separated)', Icons.label_outline),
           _field(_note, 'Note', Icons.notes_outlined, maxLines: 3),
+          _SocialsSection(
+            socials: _socials,
+            onChanged: (list) => setState(() => _socials = list),
+          ),
         ],
       );
 
@@ -220,7 +243,7 @@ class _PreviewPanel extends StatelessWidget {
       children: [
         FingerprintView(card: card, size: 240),
         const SizedBox(height: 16),
-        _SkinPicker(
+        SkinPicker(
           card: card,
           selectedStyleId: selectedStyleId,
           onSelected: onStyleSelected,
@@ -259,110 +282,165 @@ class _PreviewPanel extends StatelessWidget {
   }
 }
 
-/// A row of tappable thumbnails — one per registered art skin — each rendering
-/// the *current* card so the choice previews live. Selecting a skin only
-/// changes how the card is drawn; the safety code (content hash) is unchanged.
-class _SkinPicker extends StatelessWidget {
-  final NameCard card;
-  final String? selectedStyleId;
-  final ValueChanged<String> onSelected;
+/// Editable list of social / web links. Each row is a platform picker plus a
+/// value field (a handle for named platforms, a full URL for "Website"). Owns
+/// its own controllers so rows can be added/removed, and reports the current
+/// list up via [onChanged] on every edit.
+class _SocialsSection extends StatefulWidget {
+  final List<SocialLink> socials;
+  final ValueChanged<List<SocialLink>> onChanged;
 
-  const _SkinPicker({
-    required this.card,
-    required this.selectedStyleId,
-    required this.onSelected,
-  });
+  const _SocialsSection({required this.socials, required this.onChanged});
+
+  @override
+  State<_SocialsSection> createState() => _SocialsSectionState();
+}
+
+class _SocialsSectionState extends State<_SocialsSection> {
+  /// Platform keys offered in the dropdown, with a label and value hint.
+  static const List<(String, String, String)> _platforms = [
+    ('linkedin', 'LinkedIn', 'username'),
+    ('github', 'GitHub', 'username'),
+    ('x', 'X', 'handle (no @)'),
+    ('instagram', 'Instagram', 'handle (no @)'),
+    ('website', 'Website', 'example.com/you'),
+  ];
+
+  late List<String> _rowPlatforms;
+  late List<TextEditingController> _rowCtrls;
+
+  @override
+  void initState() {
+    super.initState();
+    _rowPlatforms = [];
+    _rowCtrls = [];
+    for (final s in widget.socials) {
+      final key = _platforms.any((p) => p.$1 == s.platform)
+          ? s.platform
+          : (s.url.isNotEmpty ? 'website' : (s.platform.isEmpty ? 'linkedin' : s.platform));
+      final value = s.handle.isNotEmpty ? s.handle : s.url;
+      _rowPlatforms.add(key);
+      _rowCtrls.add(TextEditingController(text: value));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _rowCtrls) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _emit() {
+    final out = <SocialLink>[];
+    for (var i = 0; i < _rowPlatforms.length; i++) {
+      final key = _rowPlatforms[i];
+      final value = _rowCtrls[i].text.trim();
+      if (key == 'website') {
+        out.add(SocialLink(platform: 'website', url: value));
+      } else {
+        out.add(SocialLink(platform: key, handle: value));
+      }
+    }
+    widget.onChanged(out);
+  }
+
+  void _addRow() {
+    setState(() {
+      _rowPlatforms.add('linkedin');
+      _rowCtrls.add(TextEditingController());
+    });
+    _emit();
+  }
+
+  void _removeRow(int i) {
+    setState(() {
+      _rowPlatforms.removeAt(i);
+      _rowCtrls.removeAt(i).dispose();
+    });
+    _emit();
+  }
+
+  String _hintFor(String key) =>
+      _platforms.firstWhere((p) => p.$1 == key).$3;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveId = selectedStyleId ?? defaultStyle.id;
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'ART SKIN',
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: theme.hintColor, letterSpacing: 1.5),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Row(
+            children: [
+              Icon(Icons.link, size: 18, color: theme.hintColor),
+              const SizedBox(width: 8),
+              Text('Social & web links',
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(color: theme.hintColor)),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final s in styles)
-              _SkinThumb(
-                label: s.label,
-                selected: s.id == effectiveId,
-                onTap: () => onSelected(s.id),
-                // Render this specific skin for the current card, no code.
-                child: FingerprintView(
-                  card: card,
-                  size: 64,
-                  style: s,
-                  showSafetyCode: false,
+        for (var i = 0; i < _rowPlatforms.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 132,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _rowPlatforms[i],
+                    isDense: true,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    ),
+                    items: [
+                      for (final p in _platforms)
+                        DropdownMenuItem(value: p.$1, child: Text(p.$2)),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _rowPlatforms[i] = v);
+                      _emit();
+                    },
+                  ),
                 ),
-              ),
-          ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _rowCtrls[i],
+                    onChanged: (_) => _emit(),
+                    decoration: InputDecoration(
+                      hintText: _hintFor(_rowPlatforms[i]),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove link',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => _removeRow(i),
+                ),
+              ],
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addRow,
+            icon: const Icon(Icons.add),
+            label: const Text('Add link'),
+          ),
         ),
       ],
     );
   }
 }
 
-class _SkinThumb extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Widget child;
-
-  const _SkinThumb({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '$label art skin',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  width: selected ? 2.5 : 1,
-                  color: selected ? accent : theme.dividerColor,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: child,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: selected ? accent : theme.hintColor,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

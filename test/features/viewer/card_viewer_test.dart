@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:namecard_vision/features/viewer/card_viewer.dart';
+import 'package:namecard_vision/model/fingerprint_hash.dart';
 import 'package:namecard_vision/model/card.dart';
 
 void main() {
@@ -46,5 +47,36 @@ void main() {
     ));
     expect(find.text('Received — verify the safety code'), findsOneWidget);
     expect(find.text('Your card'), findsNothing);
+  });
+
+  testWidgets('the skin picker only appears when restyling is allowed',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: CardViewer(card: card)));
+    expect(find.textContaining('Art skin:'), findsNothing);
+
+    await tester.pumpWidget(MaterialApp(
+      home: CardViewer(card: card, onCardChanged: (_) {}),
+    ));
+    expect(find.textContaining('Art skin:'), findsOneWidget);
+  });
+
+  testWidgets('picking a skin reports the restyled card without changing the '
+      'safety code', (tester) async {
+    NameCard? changed;
+    await tester.pumpWidget(MaterialApp(
+      home: CardViewer(card: card, onCardChanged: (c) => changed = c),
+    ));
+
+    // Expand the "Art skin" tile, then pick a non-default skin.
+    await tester.tap(find.textContaining('Art skin:'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Harmonograph'));
+    await tester.tap(find.text('Harmonograph'));
+    await tester.pump();
+
+    expect(changed, isNotNull);
+    expect(changed!.styleId, 'harmonograph.v1');
+    // Restyling never alters the content hash / safety code.
+    expect(Fingerprint.ofCard(changed!).hex, Fingerprint.ofCard(card).hex);
   });
 }
