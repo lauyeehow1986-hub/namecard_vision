@@ -1,4 +1,5 @@
 import '../model/card.dart';
+import '../model/phone.dart';
 
 /// Pure builders for the external URIs a card's action buttons launch. Kept
 /// free of `url_launcher` so the URI construction is unit-testable; the UI
@@ -8,7 +9,7 @@ class ContactActions {
   /// be detected, so this is always offered as one option in the chooser
   /// rather than auto-selected. Strips the leading `+` and any separators.
   static Uri whatsApp(String e164) =>
-      Uri.parse('https://wa.me/${_digits(e164)}');
+      Uri.parse('https://wa.me/${PhoneFormat.digitsE164(e164)}');
 
   /// `sms:` to the number (E.164 kept verbatim, incl. leading `+`).
   static Uri sms(String e164) => Uri(scheme: 'sms', path: _dialable(e164));
@@ -43,13 +44,7 @@ class ContactActions {
     }
   }
 
-  /// Keep only digits (WhatsApp's wa.me wants a bare international number).
-  static String _digits(String e164) => e164.replaceAll(RegExp(r'\D'), '');
-
-  /// Preserve a leading '+' for tel:/sms: but drop spaces, dashes, parens.
-  static String _dialable(String e164) {
-    final trimmed = e164.trim();
-    final plus = trimmed.startsWith('+') ? '+' : '';
-    return '$plus${_digits(trimmed)}';
-  }
+  /// E.164 for tel:/sms: — normalized, so a code-less number dials with the
+  /// default country code (+65) rather than as a local number.
+  static String _dialable(String e164) => PhoneFormat.toE164(e164);
 }

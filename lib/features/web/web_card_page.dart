@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../model/card.dart';
+import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
 import '../../share/vcard.dart';
 import '../../ui/fingerprint_view.dart';
@@ -99,8 +100,9 @@ class WebCardPage extends StatelessWidget {
     final rows = <Widget>[];
     for (final p in card.phones) {
       if (p.e164.trim().isEmpty) continue;
+      final shown = PhoneFormat.toE164(p.e164);
       rows.add(_row(context, Icons.phone_outlined,
-          p.label.trim().isEmpty ? p.e164 : '${p.e164}  (${p.label})',
+          p.label.trim().isEmpty ? shown : '$shown  (${p.label})',
           ContactActions.call(p.e164)));
     }
     for (final e in card.emails) {

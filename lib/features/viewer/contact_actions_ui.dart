@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
 
 /// Launch [uri] in an external app, showing a snackbar if nothing can handle
@@ -37,7 +38,7 @@ Future<void> showPhoneActions(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(e164),
+              title: Text(PhoneFormat.toE164(e164)),
               subtitle: label.trim().isEmpty ? null : Text(label.trim()),
             ),
             const Divider(height: 1),

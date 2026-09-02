@@ -40,6 +40,14 @@ void main() {
       final vcf = VCard.of(const NameCard(org: 'Acme'));
       expect(vcf.contains('FN:Acme'), isTrue);
     });
+
+    test('defaults a code-less number to +65 and keeps it whole', () {
+      final vcf = VCard.of(const NameCard(
+        name: 'Local',
+        phones: [PhoneNumber(label: 'mobile', e164: '010-010-02')],
+      ));
+      expect(vcf.contains('TEL;TYPE=CELL:+6501001002'), isTrue);
+    });
   });
 
   group('ContactActions', () {

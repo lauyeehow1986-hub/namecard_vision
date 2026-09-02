@@ -1,4 +1,5 @@
 import '../model/card.dart';
+import '../model/phone.dart';
 
 /// vCard 3.0 export — the universal, app-less path. A recipient without
 /// Namecard Vision can still import the contact from a `.vcf` file or a shared
@@ -30,7 +31,9 @@ class VCard {
     }
 
     for (final phone in card.phones) {
-      final num = phone.e164.trim();
+      // Normalize to E.164 (default +65) so the recipient's Contacts app keeps
+      // the number whole instead of re-grouping a code-less one.
+      final num = PhoneFormat.toE164(phone.e164);
       if (num.isEmpty) continue;
       final type = _telType(phone.label);
       lines.add('TEL;TYPE=$type:${_esc(num)}');

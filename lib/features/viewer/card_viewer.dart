@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../model/card.dart';
+import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
 import '../../ui/fingerprint_view.dart';
 import '../share/share_screen.dart';
@@ -208,7 +209,7 @@ class _CardViewerState extends State<CardViewer> {
       if (p.e164.trim().isEmpty) continue;
       rows.add(ListTile(
         leading: const Icon(Icons.phone),
-        title: Text(p.e164),
+        title: Text(PhoneFormat.toE164(p.e164)),
         subtitle: p.label.trim().isEmpty ? null : Text(p.label.trim()),
         trailing: const Icon(Icons.chevron_right),
         onTap: () =>
