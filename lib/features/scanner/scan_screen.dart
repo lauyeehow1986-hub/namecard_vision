@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../model/card.dart';
 import '../../share/ble_share.dart';
+import '../../share/contact_qr.dart';
 import '../../share/envelope.dart';
 import '../../share/nfc_share.dart';
+import '../../web/web_link.dart';
 import '../share/ble_sheet.dart';
 import '../share/nfc_sheet.dart';
+import 'scan_result.dart';
 
 /// Camera QR scanner for receiving a card. Decodes the NCV envelope and, on a
 /// valid card, pops with the decoded [NameCard] for the caller to verify+save.
@@ -37,21 +39,30 @@ class _ScanScreenState extends State<ScanScreen> {
     for (final barcode in capture.barcodes) {
       final raw = barcode.rawValue;
       if (raw == null || raw.isEmpty) continue;
-      final card = _tryDecode(raw);
-      if (card != null) {
+      final result = _tryDecode(raw);
+      if (result != null) {
         _handled = true;
-        Navigator.of(context).pop(card);
+        Navigator.of(context).pop(result);
         return;
       }
     }
   }
 
-  NameCard? _tryDecode(String raw) {
+  /// Try, in order: our verifiable envelope, our web-viewer link (also our
+  /// envelope), then a foreign contact QR (vCard / MeCard / tel: / mailto:).
+  ScanResult? _tryDecode(String raw) {
+    final text = raw.trim();
     try {
-      return ShareEnvelope.decode(raw);
+      return ScanResult(ShareEnvelope.decode(text), appVerified: true);
     } on FormatException {
-      return null;
+      // Not our envelope — fall through.
     }
+    final viaLink = WebLink.cardFromUri(Uri.tryParse(text) ?? Uri());
+    if (viaLink != null) return ScanResult(viaLink, appVerified: true);
+
+    final foreign = ContactQr.tryParse(text);
+    if (foreign != null) return ScanResult(foreign, appVerified: false);
+    return null;
   }
 
   @override
@@ -100,8 +111,8 @@ class _ScanScreenState extends State<ScanScreen> {
             padding: const EdgeInsets.all(16),
             child: Text(
               _error ??
-                  'Point the camera at a Namecard Vision QR code, or enter a '
-                      'shared code by hand.',
+                  'Point the camera at a Namecard Vision QR — or any vCard / '
+                      'contact QR — or enter a shared code by hand.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: _error != null
@@ -118,13 +129,13 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _receiveNfc() async {
     final card = await showNfcReceive(context);
     if (card == null || !mounted) return;
-    Navigator.of(context).pop(card);
+    Navigator.of(context).pop(ScanResult(card, appVerified: true));
   }
 
   Future<void> _receiveBle() async {
     final card = await showBleReceive(context);
     if (card == null || !mounted) return;
-    Navigator.of(context).pop(card);
+    Navigator.of(context).pop(ScanResult(card, appVerified: true));
   }
 
   Future<void> _enterManually() async {
@@ -155,13 +166,14 @@ class _ScanScreenState extends State<ScanScreen> {
       ),
     );
     if (code == null || code.trim().isEmpty) return;
-    final card = _tryDecode(code.trim());
+    final result = _tryDecode(code.trim());
     if (!mounted) return;
-    if (card == null) {
-      setState(() => _error = 'That code is not a valid Namecard Vision card.');
+    if (result == null) {
+      setState(() => _error =
+          'That is not a recognizable card or contact code.');
       return;
     }
-    Navigator.of(context).pop(card);
+    Navigator.of(context).pop(result);
   }
 }
 

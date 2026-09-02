@@ -7,6 +7,7 @@ import 'data/database.dart' hide Card;
 import 'features/backup/backup_actions.dart';
 import 'features/editor/editor_screen.dart';
 import 'features/ocr/scan_card_flow.dart';
+import 'features/scanner/scan_result.dart';
 import 'features/scanner/scan_screen.dart';
 import 'features/viewer/card_viewer.dart';
 import 'model/card.dart';
@@ -204,12 +205,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Scan (or paste) a shared card, confirm it, and save it as a received card.
+  /// Scan (or paste) a card. A Namecard Vision card is confirmed against its
+  /// safety code and saved as received; a foreign contact QR (vCard / MeCard)
+  /// is opened in the editor, prefilled, for review before saving.
   Future<void> _scan() async {
-    final card = await Navigator.of(context).push<NameCard>(
-      MaterialPageRoute<NameCard>(builder: (_) => const ScanScreen()),
+    final result = await Navigator.of(context).push<ScanResult>(
+      MaterialPageRoute<ScanResult>(builder: (_) => const ScanScreen()),
     );
-    if (card == null || !mounted) return;
+    if (result == null || !mounted) return;
+    if (!result.appVerified) {
+      await _openEditor(prefill: result.card);
+      return;
+    }
+    final card = result.card;
     final fp = Fingerprint.ofCard(card);
     final save = await showDialog<bool>(
       context: context,
