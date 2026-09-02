@@ -137,10 +137,12 @@ class WebCardPage extends StatelessWidget {
     }
   }
 
-  void _saveContact() {
+  Future<void> _saveContact() async {
     final name = card.name.trim().isEmpty ? 'contact' : card.name.trim();
     final safe = name.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
-    downloadText('$safe.vcf', VCard.of(card), mime: 'text/vcard;charset=utf-8');
+    // Embed the fingerprint art so it becomes the contact photo on import.
+    final vcf = await VCard.ofWithFingerprint(card);
+    downloadText('$safe.vcf', vcf, mime: 'text/vcard;charset=utf-8');
   }
 
   Future<void> _reply(BuildContext context) async {

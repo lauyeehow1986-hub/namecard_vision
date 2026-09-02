@@ -1,5 +1,6 @@
 import '../model/card.dart';
 import '../model/phone.dart';
+import '../ui/fingerprint_raster.dart';
 
 /// vCard 3.0 export — the universal, app-less path. A recipient without
 /// Namecard Vision can still import the contact from a `.vcf` file or a shared
@@ -7,8 +8,30 @@ import '../model/phone.dart';
 ///
 /// vCard 3.0 (not 4.0) is chosen for the widest importer compatibility.
 class VCard {
+  /// Serialize [card] to a vCard 3.0 string, rendering its fingerprint art as
+  /// the embedded contact `PHOTO`. Use this for exports so the recipient's
+  /// Contacts app shows the verification image as the contact picture.
+  ///
+  /// Rasterization needs a live rendering engine; if it fails (e.g. a headless
+  /// context) the photo is simply omitted and a plain vCard is returned.
+  static Future<String> ofWithFingerprint(
+    NameCard card, {
+    int photoSize = 512,
+  }) async {
+    String? photo;
+    try {
+      photo = await FingerprintRaster.base64OfCard(card, size: photoSize);
+    } catch (_) {
+      photo = null;
+    }
+    return of(card, photoBase64: photo);
+  }
+
   /// Serialize [card] to a vCard 3.0 string (CRLF line endings per spec).
-  static String of(NameCard card) {
+  ///
+  /// [photoBase64], when given, is embedded as a base64 PNG `PHOTO` — the value
+  /// most Contacts apps turn into the contact picture on import.
+  static String of(NameCard card, {String? photoBase64}) {
     final lines = <String>[
       'BEGIN:VCARD',
       'VERSION:3.0',
@@ -54,8 +77,33 @@ class VCard {
       lines.add('CATEGORIES:${card.tags.map(_esc).join(',')}');
     }
 
+    // The fingerprint art as the contact picture. Base64 is not vCard-escaped
+    // (it has no special chars); the long value is folded below like any line.
+    if (photoBase64 != null && photoBase64.isNotEmpty) {
+      lines.add('PHOTO;ENCODING=b;TYPE=PNG:$photoBase64');
+    }
+
     lines.add('END:VCARD');
-    return lines.join('\r\n');
+    // Fold every logical line to <=75 octets (RFC 2426 §2.6) so long values —
+    // the base64 PHOTO in particular — import cleanly across Contacts apps.
+    return lines.map(_fold).join('\r\n');
+  }
+
+  /// Fold one logical line into 75-octet physical lines, continuation lines
+  /// beginning with a single space (RFC 2426 §2.6). Short lines pass through.
+  static String _fold(String line) {
+    if (line.length <= 75) return line;
+    final sb = StringBuffer(line.substring(0, 75));
+    var i = 75;
+    while (i < line.length) {
+      // The leading space counts toward the 75, so each continuation adds 74.
+      final end = (i + 74) < line.length ? i + 74 : line.length;
+      sb
+        ..write('\r\n ')
+        ..write(line.substring(i, end));
+      i = end;
+    }
+    return sb.toString();
   }
 
   static String _telType(String label) {

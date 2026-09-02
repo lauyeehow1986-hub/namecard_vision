@@ -48,6 +48,28 @@ void main() {
       ));
       expect(vcf.contains('TEL;TYPE=CELL:+6501001002'), isTrue);
     });
+
+    test('embeds a base64 PHOTO and folds the long value per RFC 2426', () {
+      // A base64 blob longer than one 75-octet line, to exercise folding.
+      final photo = 'QUJD' * 40; // 160 chars, all valid base64 symbols
+      final vcf = VCard.of(const NameCard(name: 'Ada'), photoBase64: photo);
+      expect(vcf.contains('PHOTO;ENCODING=b;TYPE=PNG:'), isTrue);
+
+      // Every physical line stays within 75 octets, and continuation lines
+      // begin with a single space (folded).
+      final lines = vcf.split('\r\n');
+      expect(lines.every((l) => l.length <= 75), isTrue);
+      expect(lines.any((l) => l.startsWith(' ')), isTrue);
+
+      // Unfolding (drop the CRLF + leading space) restores the original base64.
+      final unfolded = vcf.replaceAll('\r\n ', '');
+      expect(unfolded.contains('PHOTO;ENCODING=b;TYPE=PNG:$photo'), isTrue);
+    });
+
+    test('omits PHOTO when no photo is supplied', () {
+      final vcf = VCard.of(const NameCard(name: 'Ada'));
+      expect(vcf.contains('PHOTO'), isFalse);
+    });
   });
 
   group('ContactActions', () {

@@ -162,8 +162,16 @@ class _ShareScreenState extends State<ShareScreen> {
     );
   }
 
-  void _showVCard(BuildContext context) {
-    final vcf = VCard.of(card);
+  Future<void> _showVCard(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    // Render the fingerprint into the vCard as the contact photo. Show a brief
+    // busy hint since rasterization is async.
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Preparing vCard…')),
+    );
+    final vcf = await VCard.ofWithFingerprint(card);
+    messenger.hideCurrentSnackBar();
+    if (!context.mounted) return;
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(

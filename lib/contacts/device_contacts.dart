@@ -4,6 +4,7 @@ import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import '../model/card.dart';
 import '../model/phone.dart';
 import '../share/contact_actions.dart';
+import '../ui/fingerprint_raster.dart';
 
 /// Reads the device's native address book and maps entries to [NameCard]s for
 /// import. Read-only — the app never modifies the user's contacts here.
@@ -43,7 +44,7 @@ class DeviceContacts {
   static Future<SaveToPhoneOutcome> saveToPhone(NameCard card) async {
     try {
       if (!await _requestWrite()) return SaveToPhoneOutcome.permissionDenied;
-      await fc.FlutterContacts.create(_buildContact(card));
+      await fc.FlutterContacts.create(await _buildContact(card));
       return SaveToPhoneOutcome.saved;
     } catch (_) {
       return SaveToPhoneOutcome.failed;
@@ -59,7 +60,7 @@ class DeviceContacts {
     var failed = 0;
     for (final card in cards) {
       try {
-        await fc.FlutterContacts.create(_buildContact(card));
+        await fc.FlutterContacts.create(await _buildContact(card));
         saved++;
       } catch (_) {
         failed++;
@@ -75,10 +76,20 @@ class DeviceContacts {
         status == fc.PermissionStatus.limited;
   }
 
-  static fc.Contact _buildContact(NameCard card) {
+  static Future<fc.Contact> _buildContact(NameCard card) async {
     final hasOrg = card.org.trim().isNotEmpty || card.title.trim().isNotEmpty;
+    // Render the fingerprint art as the contact picture. Best-effort: if the
+    // rasterizer can't run, the contact still saves without a photo.
+    fc.Photo? photo;
+    try {
+      final png = await FingerprintRaster.pngOfCard(card);
+      photo = fc.Photo(fullSize: png, thumbnail: png);
+    } catch (_) {
+      photo = null;
+    }
     return fc.Contact(
       name: fc.Name(first: card.name.trim()),
+      photo: photo,
       organizations: hasOrg
           ? [fc.Organization(name: card.org.trim(), jobTitle: card.title.trim())]
           : const [],
