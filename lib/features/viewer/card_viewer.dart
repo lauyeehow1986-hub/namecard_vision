@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../contacts/device_contacts.dart';
-import '../../fingerprint/ascii_signature.dart';
 import '../../model/card.dart';
 import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
@@ -209,76 +207,12 @@ class _CardViewerState extends State<CardViewer> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 12),
-                _decorativeSignature(context),
                 const SizedBox(height: 24),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  /// A fun ASCII critter derived from the card's fingerprint. Collapsed by
-  /// default and explicitly labelled as decorative so it is never mistaken for
-  /// the verification image above.
-  Widget _decorativeSignature(BuildContext context) {
-    final theme = Theme.of(context);
-    final art = AsciiSignature.ofCard(card);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Theme(
-        // Drop the divider lines ExpansionTile draws by default.
-        data: theme.copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.emoji_nature_outlined),
-          title: const Text('Decorative signature'),
-          subtitle: const Text('Just for fun — not the verification image'),
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SelectableText(
-                    art,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontFeatures: [FontFeature.tabularFigures()],
-                      height: 1.25,
-                      fontSize: 15,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copy'),
-                    onPressed: () => _copyAscii(context, art),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _copyAscii(BuildContext context, String art) async {
-    final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: art));
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Copied the decorative signature.')),
     );
   }
 
