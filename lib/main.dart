@@ -113,6 +113,49 @@ class _HomeScreenState extends State<HomeScreen> {
     if (added > 0 && mounted) setState(() {});
   }
 
+  /// Write every card in the collection into the phone's contacts (one
+  /// permission prompt, after a confirmation since it adds many entries).
+  Future<void> _exportAllToPhone() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final cards = await widget.dao.getAll();
+    if (!mounted) return;
+    if (cards.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No cards to export.')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Add ${cards.length} contact'
+            '${cards.length == 1 ? '' : 's'} to your phone?'),
+        content: const Text(
+            'Each card in your collection is added as a new phone contact. '
+            'Running this again creates duplicates.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Add all'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final result =
+        await DeviceContacts.saveManyToPhone(cards.map((s) => s.card).toList());
+    if (!mounted) return;
+    final msg = result.permissionDenied
+        ? 'Contacts permission is needed to export.'
+        : 'Saved ${result.saved} to phone contacts'
+            '${result.failed > 0 ? ' (${result.failed} failed)' : ''}.';
+    messenger.showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Future<void> _openEditor(
       {StoredCard? existing, NameCard? prefill, bool isMine = false}) async {
     await Navigator.of(context).push(
@@ -304,13 +347,14 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _importContacts,
           ),
           PopupMenuButton<String>(
-            tooltip: 'Backup',
+            tooltip: 'More',
             onSelected: (v) {
               if (v == 'export') _exportCollection();
               if (v == 'import') _importBackup();
+              if (v == 'toPhone') _exportAllToPhone();
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              const PopupMenuItem(
                 value: 'export',
                 child: ListTile(
                   leading: Icon(Icons.upload_file_outlined),
@@ -318,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'import',
                 child: ListTile(
                   leading: Icon(Icons.download_outlined),
@@ -326,6 +370,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
+              if (DeviceContacts.platformSupported) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'toPhone',
+                  child: ListTile(
+                    leading: Icon(Icons.contact_phone_outlined),
+                    title: Text('Export all to phone contacts…'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ],
           ),
         ],

@@ -42,45 +42,64 @@ class DeviceContacts {
   /// isn't attempted; this only adds.
   static Future<SaveToPhoneOutcome> saveToPhone(NameCard card) async {
     try {
-      final status = await fc.FlutterContacts.permissions
-          .request(fc.PermissionType.write);
-      final granted = status == fc.PermissionStatus.granted ||
-          status == fc.PermissionStatus.limited;
-      if (!granted) return SaveToPhoneOutcome.permissionDenied;
-
-      final hasOrg =
-          card.org.trim().isNotEmpty || card.title.trim().isNotEmpty;
-      final contact = fc.Contact(
-        name: fc.Name(first: card.name.trim()),
-        organizations: hasOrg
-            ? [
-                fc.Organization(
-                    name: card.org.trim(), jobTitle: card.title.trim())
-              ]
-            : const [],
-        phones: [
-          for (final p in card.phones)
-            if (p.e164.trim().isNotEmpty)
-              fc.Phone(
-                number: PhoneFormat.toE164(p.e164),
-                label: fc.Label(_toPhoneLabel(p.label)),
-              ),
-        ],
-        emails: [
-          for (final e in card.emails)
-            if (e.trim().isNotEmpty) fc.Email(address: e.trim()),
-        ],
-        websites: [
-          for (final s in card.socials)
-            if (ContactActions.social(s) != null)
-              fc.Website(url: ContactActions.social(s)!.toString()),
-        ],
-      );
-      await fc.FlutterContacts.create(contact);
+      if (!await _requestWrite()) return SaveToPhoneOutcome.permissionDenied;
+      await fc.FlutterContacts.create(_buildContact(card));
       return SaveToPhoneOutcome.saved;
     } catch (_) {
       return SaveToPhoneOutcome.failed;
     }
+  }
+
+  /// Write many cards at once. Requests permission a single time, then creates
+  /// each contact, counting successes and failures so the UI can summarize.
+  static Future<BulkExportResult> saveManyToPhone(
+      List<NameCard> cards) async {
+    if (!await _requestWrite()) return const BulkExportResult.denied();
+    var saved = 0;
+    var failed = 0;
+    for (final card in cards) {
+      try {
+        await fc.FlutterContacts.create(_buildContact(card));
+        saved++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    return BulkExportResult(saved: saved, failed: failed);
+  }
+
+  static Future<bool> _requestWrite() async {
+    final status =
+        await fc.FlutterContacts.permissions.request(fc.PermissionType.write);
+    return status == fc.PermissionStatus.granted ||
+        status == fc.PermissionStatus.limited;
+  }
+
+  static fc.Contact _buildContact(NameCard card) {
+    final hasOrg = card.org.trim().isNotEmpty || card.title.trim().isNotEmpty;
+    return fc.Contact(
+      name: fc.Name(first: card.name.trim()),
+      organizations: hasOrg
+          ? [fc.Organization(name: card.org.trim(), jobTitle: card.title.trim())]
+          : const [],
+      phones: [
+        for (final p in card.phones)
+          if (p.e164.trim().isNotEmpty)
+            fc.Phone(
+              number: PhoneFormat.toE164(p.e164),
+              label: fc.Label(_toPhoneLabel(p.label)),
+            ),
+      ],
+      emails: [
+        for (final e in card.emails)
+          if (e.trim().isNotEmpty) fc.Email(address: e.trim()),
+      ],
+      websites: [
+        for (final s in card.socials)
+          if (ContactActions.social(s) != null)
+            fc.Website(url: ContactActions.social(s)!.toString()),
+      ],
+    );
   }
 
   static fc.PhoneLabel _toPhoneLabel(String label) {
@@ -158,6 +177,20 @@ class DeviceContacts {
 
 /// The outcome of writing a card into the phone's contacts.
 enum SaveToPhoneOutcome { saved, permissionDenied, failed }
+
+/// The tally from a bulk export to the phone's contacts.
+class BulkExportResult {
+  final int saved;
+  final int failed;
+  final bool permissionDenied;
+
+  const BulkExportResult({this.saved = 0, this.failed = 0})
+      : permissionDenied = false;
+  const BulkExportResult.denied()
+      : saved = 0,
+        failed = 0,
+        permissionDenied = true;
+}
 
 /// The outcome of reading device contacts.
 class DeviceContactsResult {
