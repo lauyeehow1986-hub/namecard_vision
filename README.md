@@ -64,6 +64,16 @@ verifies *content*, not appearance.
 - **Offline‑first**: everything is stored locally (SQLite); no network calls
   except opening links you tap.
 
+## Screens
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="screenshots/feature-editor.png" width="240"><br><sub><b>Editor</b><br>Live fingerprint preview, art-skin picker, and fields for contacts &amp; social links.</sub></td>
+    <td align="center" width="33%"><img src="screenshots/feature-viewer.png" width="240"><br><sub><b>Card viewer</b><br>Art + safety code + tappable contacts; switch the skin without leaving the card.</sub></td>
+    <td align="center" width="33%"><img src="screenshots/feature-share.png" width="240"><br><sub><b>Share</b><br>Verifiable App/Web QR, plus Bluetooth, link, copy, and vCard.</sub></td>
+  </tr>
+</table>
+
 ## Try it
 
 - **Live web viewer (a demo card):**

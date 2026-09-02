@@ -6,7 +6,6 @@
 // write it to disk. Text uses the bundled RobotoMono so glyphs render in the
 // headless environment (the default test font is blank).
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -16,62 +15,15 @@ import 'package:namecard_vision/fingerprint/registry.dart';
 import 'package:namecard_vision/model/card.dart';
 import 'package:namecard_vision/model/fingerprint_hash.dart';
 
+import 'demo_cards.dart';
+
 const String _mono = 'RobotoMono';
 
 final List<(String, NameCard)> _cards = [
-  (
-    'maya-biostat',
-    const NameCard(
-      name: 'Dr. Maya Chen',
-      title: 'Consultant Cardiologist',
-      org: 'Harbourfront Heart Centre',
-      phones: [PhoneNumber(label: 'mobile', e164: '+6591234567')],
-      emails: ['maya.chen@example.com'],
-      socials: [
-        SocialLink(platform: 'linkedin', handle: 'maya-chen'),
-        SocialLink(platform: 'github', handle: 'mayachen'),
-      ],
-    ),
-  ),
-  (
-    'arjun-geometric',
-    const NameCard(
-      name: 'Arjun Rao',
-      title: 'Staff Data Scientist',
-      org: 'Novena Analytics',
-      phones: [PhoneNumber(label: 'mobile', e164: '+6598887766')],
-      emails: ['arjun@example.org'],
-      socials: [
-        SocialLink(platform: 'x', handle: 'arjunrao'),
-        SocialLink(platform: 'website', url: 'arjun.example.dev'),
-      ],
-      styleId: 'geometric.v1',
-    ),
-  ),
-  (
-    'sofia-harmonograph',
-    const NameCard(
-      name: 'Sofia Almeida',
-      title: 'Principal Product Designer',
-      org: 'Studio Lumen',
-      phones: [PhoneNumber(label: 'mobile', e164: '+6590011223')],
-      emails: ['sofia@example.net'],
-      socials: [SocialLink(platform: 'instagram', handle: 'sofia.designs')],
-      styleId: 'harmonograph.v1',
-    ),
-  ),
-  (
-    'wei-randomart',
-    const NameCard(
-      name: 'Wei Lin',
-      title: 'Security Engineer',
-      org: 'Redwall Labs',
-      phones: [PhoneNumber(label: 'mobile', e164: '+6593334455')],
-      emails: ['wei@example.io'],
-      socials: [SocialLink(platform: 'github', handle: 'weilin')],
-      styleId: 'randomart.v1',
-    ),
-  ),
+  ('maya-biostat', demoMaya),
+  ('arjun-geometric', demoArjun),
+  ('sofia-harmonograph', demoSofia),
+  ('wei-randomart', demoWei),
 ];
 
 String _socialLine(SocialLink s) {
