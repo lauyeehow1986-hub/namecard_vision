@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../model/card.dart';
 import '../../model/fingerprint_hash.dart';
@@ -8,6 +9,7 @@ import '../../share/ble_share.dart';
 import '../../share/envelope.dart';
 import '../../share/nfc_share.dart';
 import '../../share/vcard.dart';
+import '../../web/web_link.dart';
 import 'ble_sheet.dart';
 import 'nfc_sheet.dart';
 
@@ -87,6 +89,11 @@ class ShareScreen extends StatelessWidget {
                         label: const Text('Bluetooth'),
                         onPressed: () => showBleSend(context, card),
                       ),
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.link),
+                      label: const Text('Share link'),
+                      onPressed: () => Share.share(WebLink.forCard(card)),
+                    ),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.copy),
                       label: const Text('Copy share code'),
