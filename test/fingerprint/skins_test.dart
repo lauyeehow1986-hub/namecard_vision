@@ -8,7 +8,14 @@ import 'package:namecard_vision/ui/fingerprint_raster.dart';
 void main() {
   test('the registry exposes the expected skins', () {
     final ids = styles.map((s) => s.id).toList();
-    expect(ids, containsAll(<String>['biostat.v1', 'geometric.v1', 'harmonograph.v1']));
+    expect(
+        ids,
+        containsAll(<String>[
+          'biostat.v1',
+          'geometric.v1',
+          'harmonograph.v1',
+          'randomart.v1',
+        ]));
     expect(defaultStyle.id, 'biostat.v1');
   });
 

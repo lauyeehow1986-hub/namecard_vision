@@ -1,6 +1,7 @@
 import 'biostat_style.dart';
 import 'geometric_style.dart';
 import 'harmonograph_style.dart';
+import 'randomart_style.dart';
 import 'style.dart';
 
 /// All fingerprint styles known to the app, keyed by [FingerprintStyle.id].
@@ -16,6 +17,7 @@ const List<FingerprintStyle> styles = [
   defaultStyle,
   GeometricStyle(),
   HarmonographStyle(),
+  RandomartStyle(),
 ];
 
 final Map<String, FingerprintStyle> styleRegistry = {
