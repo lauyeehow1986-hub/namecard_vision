@@ -55,6 +55,24 @@ void main() {
     });
   });
 
+  group('ContactQr.parseAll', () {
+    test('parses several vCards from one file', () {
+      const file = 'BEGIN:VCARD\nVERSION:3.0\nFN:Ada\nTEL:+6511111111\n'
+          'END:VCARD\n'
+          'BEGIN:VCARD\nVERSION:3.0\nFN:Alan\nTEL:+6522222222\n'
+          'END:VCARD\n';
+      final cards = ContactQr.parseAll(file);
+      expect(cards.length, 2);
+      expect(cards[0].name, 'Ada');
+      expect(cards[1].name, 'Alan');
+    });
+
+    test('returns a single card for a non-vCard payload, empty for junk', () {
+      expect(ContactQr.parseAll('MECARD:N:Doe,Jane;TEL:123;;').length, 1);
+      expect(ContactQr.parseAll('not a contact'), isEmpty);
+    });
+  });
+
   group('ContactQr misc', () {
     test('bare tel: and mailto: become minimal cards', () {
       expect(ContactQr.tryParse('tel:+6591234567')!.phones.single.e164,

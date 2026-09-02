@@ -4,8 +4,10 @@ import 'backup/backup_service.dart';
 import 'data/card_dao.dart';
 import 'data/connection.dart';
 import 'data/database.dart' hide Card;
+import 'contacts/device_contacts.dart';
 import 'features/backup/backup_actions.dart';
 import 'features/editor/editor_screen.dart';
+import 'features/import/contact_import.dart';
 import 'features/ocr/scan_card_flow.dart';
 import 'features/scanner/scan_result.dart';
 import 'features/scanner/scan_screen.dart';
@@ -74,6 +76,41 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _importBackup() async {
     final added = await BackupActions.import(context, _backup);
     if (added && mounted) setState(() {});
+  }
+
+  /// Import external contacts — from a .vcf file (e.g. shared over WhatsApp) or
+  /// the phone's address book — via a review/selection list.
+  Future<void> _importContacts() async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file_outlined),
+              title: const Text('Contact file (.vcf)'),
+              subtitle: const Text('e.g. a card shared over WhatsApp'),
+              onTap: () => Navigator.of(ctx).pop('file'),
+            ),
+            if (DeviceContacts.platformSupported)
+              ListTile(
+                leading: const Icon(Icons.contacts_outlined),
+                title: const Text('Phone contacts'),
+                subtitle: const Text('Pick from your address book'),
+                onTap: () => Navigator.of(ctx).pop('phone'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final added = source == 'file'
+        ? await ContactImport.fromFile(context, widget.dao)
+        : await ContactImport.fromPhone(context, widget.dao);
+    if (added > 0 && mounted) setState(() {});
   }
 
   Future<void> _openEditor(
@@ -260,6 +297,11 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Scan a card',
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: _scan,
+          ),
+          IconButton(
+            tooltip: 'Import contacts',
+            icon: const Icon(Icons.import_contacts_outlined),
+            onPressed: _importContacts,
           ),
           PopupMenuButton<String>(
             tooltip: 'Backup',

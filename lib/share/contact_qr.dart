@@ -8,6 +8,26 @@ import '../model/card.dart';
 /// card. Numbers are kept verbatim; the app normalizes them (E.164, default
 /// +65) wherever they're shown, dialed, or exported.
 class ContactQr {
+  /// Parse a file that may contain **several** contacts — a `.vcf` can hold
+  /// many `BEGIN:VCARD…END:VCARD` blocks (e.g. a WhatsApp-shared multi-contact
+  /// file). Falls back to [tryParse] for a single non-vCard payload.
+  static List<NameCard> parseAll(String raw) {
+    final text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final re = RegExp(r'BEGIN:VCARD.*?END:VCARD',
+        caseSensitive: false, dotAll: true);
+    final blocks = re.allMatches(text).toList();
+    if (blocks.isEmpty) {
+      final one = tryParse(text);
+      return one == null ? const [] : [one];
+    }
+    final out = <NameCard>[];
+    for (final b in blocks) {
+      final c = _vcard(b.group(0)!);
+      if (c != null) out.add(c);
+    }
+    return out;
+  }
+
   static NameCard? tryParse(String raw) {
     final t = raw.trim();
     if (t.isEmpty) return null;

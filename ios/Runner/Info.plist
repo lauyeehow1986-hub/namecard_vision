@@ -32,6 +32,8 @@
 	<string>Namecard Vision uses Bluetooth to share your card with a nearby phone.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of a business card to scan its details.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Namecard Vision reads your contacts so you can import them as cards. It never modifies your contacts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo of a business card to scan its details.</string>
 	<key>UIApplicationSceneManifest</key>
