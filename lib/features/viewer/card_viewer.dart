@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../contacts/device_contacts.dart';
 import '../../model/card.dart';
 import '../../model/phone.dart';
 import '../../share/contact_actions.dart';
@@ -60,9 +61,10 @@ class _CardViewerState extends State<CardViewer> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = card.name.trim();
-    final hasMenu =
-        widget.onToggleMine != null || widget.onEdit != null ||
-            widget.onDelete != null;
+    final hasMenu = widget.onToggleMine != null ||
+        widget.onEdit != null ||
+        widget.onDelete != null ||
+        DeviceContacts.platformSupported;
 
     return Scaffold(
       appBar: AppBar(
@@ -90,6 +92,8 @@ class _CardViewerState extends State<CardViewer> {
                 switch (v) {
                   case 'mine':
                     _toggleMine();
+                  case 'toPhone':
+                    _saveToPhone(context);
                   case 'edit':
                     widget.onEdit?.call();
                   case 'delete':
@@ -97,6 +101,15 @@ class _CardViewerState extends State<CardViewer> {
                 }
               },
               itemBuilder: (_) => [
+                if (DeviceContacts.platformSupported)
+                  const PopupMenuItem(
+                    value: 'toPhone',
+                    child: ListTile(
+                      leading: Icon(Icons.contact_phone_outlined),
+                      title: Text('Save to phone contacts'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
                 if (widget.onToggleMine != null)
                   PopupMenuItem(
                     value: 'mine',
@@ -235,6 +248,18 @@ class _CardViewerState extends State<CardViewer> {
       ));
     }
     return rows;
+  }
+
+  Future<void> _saveToPhone(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await DeviceContacts.saveToPhone(card);
+    final message = switch (outcome) {
+      SaveToPhoneOutcome.saved => 'Saved to your phone contacts.',
+      SaveToPhoneOutcome.permissionDenied =>
+        'Contacts permission is needed to save.',
+      SaveToPhoneOutcome.failed => 'Could not save to contacts.',
+    };
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmDelete(BuildContext context) async {

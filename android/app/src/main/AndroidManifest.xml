@@ -1,7 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Read the device address book to import contacts. Read-only — the app
-         never writes to the user's contacts. -->
+    <!-- Read the device address book to import contacts, and write to add a
+         card as a native contact (both user-initiated). -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
     <!-- NFC tap-to-share (P3). Not required, so non-NFC devices can still install. -->
     <uses-permission android:name="android.permission.NFC" />
