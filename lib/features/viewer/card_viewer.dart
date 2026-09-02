@@ -7,26 +7,61 @@ import '../share/share_screen.dart';
 import 'contact_actions_ui.dart';
 
 /// Read-only view of a card: the fingerprint (the thing you verify against),
-/// the safety code, and actionable contact rows. Share / edit / delete live
-/// in the app bar.
-class CardViewer extends StatelessWidget {
+/// the safety code, and actionable contact rows. Share / pin / edit / delete
+/// live in the app bar.
+///
+/// [pinned] and [isMine] are display state; toggling them calls back to the
+/// store via [onTogglePin] / [onToggleMine]. The view keeps its own copy so the
+/// app bar updates instantly while it sits on top of the navigation stack.
+class CardViewer extends StatefulWidget {
   final NameCard card;
   final bool received;
+  final bool pinned;
+  final bool isMine;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final ValueChanged<bool>? onTogglePin;
+  final ValueChanged<bool>? onToggleMine;
 
   const CardViewer({
     super.key,
     required this.card,
     this.received = false,
+    this.pinned = false,
+    this.isMine = false,
     this.onEdit,
     this.onDelete,
+    this.onTogglePin,
+    this.onToggleMine,
   });
+
+  @override
+  State<CardViewer> createState() => _CardViewerState();
+}
+
+class _CardViewerState extends State<CardViewer> {
+  late bool _pinned = widget.pinned;
+  late bool _isMine = widget.isMine;
+
+  NameCard get card => widget.card;
+
+  void _togglePin() {
+    setState(() => _pinned = !_pinned);
+    widget.onTogglePin?.call(_pinned);
+  }
+
+  void _toggleMine() {
+    setState(() => _isMine = !_isMine);
+    widget.onToggleMine?.call(_isMine);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = card.name.trim();
+    final hasMenu =
+        widget.onToggleMine != null || widget.onEdit != null ||
+            widget.onDelete != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,17 +76,57 @@ class CardViewer extends StatelessWidget {
               ),
             ),
           ),
-          if (onEdit != null)
+          if (widget.onTogglePin != null)
             IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: onEdit,
+              tooltip: _pinned ? 'Unpin' : 'Pin to top',
+              icon: Icon(_pinned ? Icons.star : Icons.star_border,
+                  color: _pinned ? theme.colorScheme.primary : null),
+              onPressed: _togglePin,
             ),
-          if (onDelete != null)
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _confirmDelete(context),
+          if (hasMenu)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                switch (v) {
+                  case 'mine':
+                    _toggleMine();
+                  case 'edit':
+                    widget.onEdit?.call();
+                  case 'delete':
+                    _confirmDelete(context);
+                }
+              },
+              itemBuilder: (_) => [
+                if (widget.onToggleMine != null)
+                  PopupMenuItem(
+                    value: 'mine',
+                    child: ListTile(
+                      leading: Icon(_isMine
+                          ? Icons.person_outline
+                          : Icons.badge_outlined),
+                      title: Text(
+                          _isMine ? 'Move to contacts' : 'Set as my card'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (widget.onEdit != null)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Edit'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (widget.onDelete != null)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Delete'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+              ],
             ),
         ],
       ),
@@ -62,7 +137,16 @@ class CardViewer extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 480),
             child: Column(
               children: [
-                if (received)
+                if (_isMine)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Chip(
+                      avatar: const Icon(Icons.badge_outlined, size: 18),
+                      label: const Text('Your card'),
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                    ),
+                  )
+                else if (widget.received)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Chip(
@@ -170,6 +254,6 @@ class CardViewer extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true) onDelete?.call();
+    if (ok == true) widget.onDelete?.call();
   }
 }

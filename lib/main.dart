@@ -180,6 +180,16 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => CardViewer(
           card: stored.card,
           received: stored.origin == CardOrigin.received,
+          pinned: stored.pinned,
+          isMine: stored.isMine,
+          onTogglePin: (v) async {
+            await widget.dao.setPinned(stored.id, v);
+            if (mounted) setState(() {});
+          },
+          onToggleMine: (v) async {
+            await widget.dao.setMine(stored.id, v);
+            if (mounted) setState(() {});
+          },
           onEdit: () async {
             await _openEditor(existing: stored);
             if (mounted) Navigator.of(context).pop(); // back to refreshed list
