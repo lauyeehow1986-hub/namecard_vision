@@ -21,9 +21,23 @@ class DigestRandom {
     var h = 0x811C9DC5;
     for (final b in d) {
       h = (h ^ b) & 0xFFFFFFFF;
-      h = (h * 0x01000193) & 0xFFFFFFFF;
+      h = _mul32(h, 0x01000193);
     }
     return h == 0 ? 0x9E3779B9 : h;
+  }
+
+  /// Low 32 bits of `a * b`, computed so the intermediate never exceeds 2^53.
+  ///
+  /// A direct `(a * b) & 0xFFFFFFFF` overflows the 53-bit mantissa of a web
+  /// (JS) number when both operands are large — the FNV prime times a 32-bit
+  /// accumulator reaches ~2^56 — silently dropping low bits and making the art
+  /// render differently on web than on mobile. Splitting `a` into 16-bit halves
+  /// keeps every product under 2^41, so the result is exact on every platform.
+  static int _mul32(int a, int b) {
+    final aLo = a & 0xFFFF;
+    final aHi = (a >> 16) & 0xFFFF;
+    // (aHi*b) only contributes to the low 32 bits through its own low 16 bits.
+    return (aLo * b + (((aHi * b) & 0xFFFF) << 16)) & 0xFFFFFFFF;
   }
 
   /// Next unsigned 32-bit value (xorshift32, then a digest byte mixed in).
