@@ -64,6 +64,12 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // ML Kit references script recognizers we don't bundle; the extra
+            // ProGuard file tells R8 not to fail on those absent classes.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

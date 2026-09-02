@@ -66,5 +66,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- P4 OCR: photograph or pick a business card to scan. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a business card to scan its details.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo of a business card to scan its details.</string>
 </dict>
 </plist>

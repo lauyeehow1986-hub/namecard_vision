@@ -6,10 +6,12 @@ import 'data/connection.dart';
 import 'data/database.dart' hide Card;
 import 'features/backup/backup_actions.dart';
 import 'features/editor/editor_screen.dart';
+import 'features/ocr/scan_card_flow.dart';
 import 'features/scanner/scan_screen.dart';
 import 'features/viewer/card_viewer.dart';
 import 'model/card.dart';
 import 'model/fingerprint_hash.dart';
+import 'ocr/ocr_scanner.dart';
 import 'ui/fingerprint_view.dart';
 
 void main() {
@@ -73,11 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (added && mounted) setState(() {});
   }
 
-  Future<void> _openEditor({StoredCard? existing}) async {
+  Future<void> _openEditor({StoredCard? existing, NameCard? prefill}) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => EditorScreen(
-          initial: existing?.card,
+          initial: existing?.card ?? prefill,
           onSave: (card) async {
             await widget.dao.upsert(
               card,
@@ -90,6 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Photograph a physical card, OCR it, and open the editor prefilled with the
+  /// best-guess fields for the user to review before saving.
+  Future<void> _scanPhysicalCard() async {
+    final parsed = await scanPhysicalCard(context);
+    if (parsed == null || !mounted) return;
+    await _openEditor(prefill: parsed);
   }
 
   /// Open a saved card in the read-only viewer, with edit/delete wired back to
@@ -152,6 +162,12 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('namecard_vision'),
         actions: [
+          if (OcrScanner.platformSupported)
+            IconButton(
+              tooltip: 'Scan a physical card',
+              icon: const Icon(Icons.document_scanner_outlined),
+              onPressed: _scanPhysicalCard,
+            ),
           IconButton(
             tooltip: 'Scan a card',
             icon: const Icon(Icons.qr_code_scanner),
