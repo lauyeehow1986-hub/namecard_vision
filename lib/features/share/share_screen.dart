@@ -13,17 +13,41 @@ import '../../web/web_link.dart';
 import 'ble_sheet.dart';
 import 'nfc_sheet.dart';
 
-/// Shows a card as a scannable QR (the verifiable NCV envelope) alongside its
-/// fingerprint + safety code, plus a vCard fallback for app-less recipients.
-class ShareScreen extends StatelessWidget {
+/// Which payload the on-screen QR carries.
+enum _QrMode {
+  /// The verifiable NCV envelope — for a recipient who has the app.
+  app,
+
+  /// The hosted web-viewer URL — any phone camera opens it in a browser and can
+  /// save the contact, no app required.
+  web,
+}
+
+/// Shows a card as a scannable QR alongside its fingerprint + safety code, plus
+/// a vCard fallback for app-less recipients. The QR can carry either the
+/// verifiable app envelope or the web-viewer link (toggle at the top).
+class ShareScreen extends StatefulWidget {
   final NameCard card;
   const ShareScreen({super.key, required this.card});
 
   @override
+  State<ShareScreen> createState() => _ShareScreenState();
+}
+
+class _ShareScreenState extends State<ShareScreen> {
+  _QrMode _mode = _QrMode.app;
+
+  NameCard get card => widget.card;
+
+  @override
   Widget build(BuildContext context) {
     final text = ShareEnvelope.encode(card);
+    final webUrl = WebLink.forCard(card);
     final fp = Fingerprint.ofCard(card);
     final theme = Theme.of(context);
+
+    final isWeb = _mode == _QrMode.web;
+    final qrData = isWeb ? webUrl : text;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Share card')),
@@ -35,6 +59,23 @@ class ShareScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                SegmentedButton<_QrMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _QrMode.app,
+                      icon: Icon(Icons.verified_outlined),
+                      label: Text('App QR'),
+                    ),
+                    ButtonSegment(
+                      value: _QrMode.web,
+                      icon: Icon(Icons.public),
+                      label: Text('Web QR'),
+                    ),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: (s) => setState(() => _mode = s.first),
+                ),
+                const SizedBox(height: 16),
                 // Quiet-zone white card so the QR scans in any app theme.
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -43,11 +84,13 @@ class ShareScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: QrImageView(
-                    data: text,
+                    data: qrData,
                     version: QrVersions.auto,
                     size: 260,
                     backgroundColor: Colors.white,
-                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                    // Web URLs are longer; lower ECC keeps the symbol scannable.
+                    errorCorrectionLevel:
+                        isWeb ? QrErrorCorrectLevel.L : QrErrorCorrectLevel.M,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -64,8 +107,13 @@ class ShareScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'The recipient scans this, and their app re-derives the same '
-                  'art and safety code — proof the card arrived unaltered.',
+                  isWeb
+                      ? 'Anyone can scan this with their phone camera to open '
+                          'your card in a browser and save your contact — no '
+                          'app needed.'
+                      : 'The recipient scans this, and their app re-derives the '
+                          'same art and safety code — proof the card arrived '
+                          'unaltered.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
