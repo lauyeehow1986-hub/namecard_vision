@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../model/card.dart';
+import '../../share/ble_share.dart';
 import '../../share/envelope.dart';
 import '../../share/nfc_share.dart';
+import '../share/ble_sheet.dart';
 import '../share/nfc_sheet.dart';
 
 /// Camera QR scanner for receiving a card. Decodes the NCV envelope and, on a
@@ -64,6 +66,12 @@ class _ScanScreenState extends State<ScanScreen> {
               icon: const Icon(Icons.contactless),
               onPressed: _receiveNfc,
             ),
+          if (BleShare.platformSupported)
+            IconButton(
+              tooltip: 'Receive over Bluetooth',
+              icon: const Icon(Icons.bluetooth),
+              onPressed: _receiveBle,
+            ),
           IconButton(
             tooltip: 'Enter code',
             icon: const Icon(Icons.keyboard),
@@ -109,6 +117,12 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _receiveNfc() async {
     final card = await showNfcReceive(context);
+    if (card == null || !mounted) return;
+    Navigator.of(context).pop(card);
+  }
+
+  Future<void> _receiveBle() async {
+    final card = await showBleReceive(context);
     if (card == null || !mounted) return;
     Navigator.of(context).pop(card);
   }

@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Namecard Vision uses Bluetooth to exchange contact cards directly with a nearby phone.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Namecard Vision uses Bluetooth to share your card with a nearby phone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a business card to scan its details.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo of a business card to scan its details.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -66,10 +74,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- P4 OCR: photograph or pick a business card to scan. -->
-	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of a business card to scan its details.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a photo of a business card to scan its details.</string>
 </dict>
 </plist>

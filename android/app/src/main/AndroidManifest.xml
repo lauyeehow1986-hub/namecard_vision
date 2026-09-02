@@ -2,6 +2,23 @@
     <!-- NFC tap-to-share (P3). Not required, so non-NFC devices can still install. -->
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
+
+    <!-- Bluetooth LE peer exchange (P5). SCAN/CONNECT/ADVERTISE are the Android 12+
+         (API 31) runtime permissions; neverForLocation lets us skip location on
+         12+. ACCESS_FINE_LOCATION is only needed for BLE scanning on API 30 and
+         below. BLUETOOTH/BLUETOOTH_ADMIN cover those older releases too. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-feature android:name="android.hardware.bluetooth_le"
+        android:required="false" />
     <application
         android:label="namecard_vision"
         android:name="${applicationName}"
